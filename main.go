@@ -74,7 +74,7 @@ func copyToClipboard(s string) (err error) {
 
 // Adds input to clipboard stack
 func add(c *cli.Context) (err error) {
-	err = sendMessage("add", c.Args().First())
+	err = sendMessage("add", strings.Join(c.Args().Slice(), " "))
 	if err != nil {
 		return
 	}
@@ -135,7 +135,7 @@ func front(c *cli.Context) (err error) {
 		return
 	}
 	fmt.Println(response.Rtn, "copied to clipboard!")
-	return nil
+	return
 }
 
 // Clears the elements from the clipboard.
@@ -154,7 +154,10 @@ func setLimit(c *cli.Context) (err error) {
 	if err != nil {
 		return
 	}
-	waitForResponse()
+	response := waitForResponse()
+	if !response.Ok {
+		err = errors.New(response.Rtn)
+	}
 	return
 }
 
@@ -173,7 +176,7 @@ func main() {
 			{
 				Name:    "list",
 				Aliases: []string{"l"},
-				Usage:   "|Lists all elements in clipboard stack",
+				Usage:   "Lists all elements in clipboard stack",
 				Action:  list,
 			},
 			{
@@ -196,7 +199,7 @@ func main() {
 			},
 			{
 				Name:    "limit",
-				Aliases: []string{"li"},
+				Aliases: []string{"l"},
 				Usage:   "Updates size limit for the clipboard stack (Default=5)",
 				Action:  setLimit,
 			},

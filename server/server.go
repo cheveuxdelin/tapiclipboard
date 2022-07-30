@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"strconv"
 )
@@ -23,6 +22,7 @@ const (
 const (
 	EMPTY_CLIPBOARD string = "empty clipboard"
 	FULL_CLIPBOARD  string = "clipboard is full"
+	NEGATIVE_SIZE   string = "negative size"
 )
 
 func readArgs() ([]string, error) {
@@ -35,7 +35,6 @@ func readArgs() ([]string, error) {
 func writeResponse(rtn string, ok bool) {
 	output, _ := os.OpenFile(OUTPUT_PATH, os.O_WRONLY, 0)
 	encoded, _ := json.Marshal(response{rtn, ok})
-	fmt.Println(response{rtn, ok})
 	output.Write(encoded)
 	output.Close()
 }
@@ -59,24 +58,37 @@ func main() {
 			}
 		case "list":
 			if s.size == 0 {
-				ok = false
-				rtn = "empty clipboard"
+				rtn = EMPTY_CLIPBOARD
 			} else {
 				ok = true
 				rtn = s.print()
 			}
 		case "pop":
-			rtn = s.pop()
-			ok = true
+			if s.size == 0 {
+				rtn = EMPTY_CLIPBOARD
+			} else {
+				rtn = s.pop()
+				ok = true
+			}
 		case "front":
-			rtn = s.front()
-			ok = true
+			if s.size == 0 {
+				rtn = EMPTY_CLIPBOARD
+			} else {
+				rtn = s.front()
+				ok = true
+			}
 		case "clear":
 			s.clear()
 			ok = true
 		case "setLimit":
-			x, _ := strconv.Atoi(args[1])
-			s.sizeLimit = x
+			n, err := strconv.Atoi(args[1])
+			if err != nil {
+				rtn = err.Error()
+			}
+			if n < 0 {
+				rtn = NEGATIVE_SIZE
+			}
+			s.sizeLimit = n
 			ok = true
 		}
 		writeResponse(rtn, ok)
