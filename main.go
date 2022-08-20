@@ -8,12 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/urfave/cli/v2"
 )
 
 // TODO
-// SET TIMEOUTS FOR CONNECTIONS IN NAMED PIPES
+// SET TIMEOUTS FOR CONNECTIONS IN NAMED PIPES DONE
 // LOOK INTO CHANGING NAMED PIPES TO UNIX DOMAIN SOCKETS
 // MAKE PROCESS TO A SERVICE
 // MAKE IT MULTIPLATFORM
@@ -29,6 +30,7 @@ import (
 // https://gist.githubusercontent.com/hakobe/6f70d69b8c5243117787fd488ae7fbf2/raw/75f02abc7742228b24842cecee51837da858055d/client.go
 // https://stackoverflow.com/questions/65799886/unable-to-read-from-unix-socket-using-net-conn-read
 // https://apple.stackexchange.com/questions/364094/how-to-view-status-of-service-e-g-whether-its-running-in-a-format-similar-to
+// https://medium.com/swlh/how-to-use-launchd-to-run-services-in-macos-b972ed1e352
 
 // Struct for process communication
 type response struct {
@@ -40,19 +42,32 @@ const INPUT_PATH string = "./pipes/input"
 const OUTPUT_PATH string = "./pipes/output"
 
 func sendMessage(s ...string) (err error) {
-	f, err := os.OpenFile(INPUT_PATH, os.O_WRONLY, 0)
-	if err != nil {
-		return
+	var ok chan bool = make(chan bool)
+	var f *os.File
+
+	go func() {
+		f, err = os.OpenFile(INPUT_PATH, os.O_WRONLY, 0)
+		ok <- true
+	}()
+
+	select {
+	case <-time.After(time.Second):
+		err = errors.New(("connection timeout! is server running?"))
+	case <-ok:
+		if err != nil {
+			return
+		}
+		var encoded []byte
+		encoded, err = json.Marshal(s)
+		if err != nil {
+			return
+		}
+		_, err = f.Write(encoded)
+		if err != nil {
+			return
+		}
+		err = f.Close()
 	}
-	encoded, err := json.Marshal(s)
-	if err != nil {
-		return
-	}
-	_, err = f.Write(encoded)
-	if err != nil {
-		return
-	}
-	err = f.Close()
 	return
 }
 
@@ -75,6 +90,7 @@ func copyToClipboard(s string) (err error) {
 // Adds input to clipboard stack
 func add(c *cli.Context) (err error) {
 	err = sendMessage("add", strings.Join(c.Args().Slice(), " "))
+
 	if err != nil {
 		return
 	}
